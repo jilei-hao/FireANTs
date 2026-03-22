@@ -141,6 +141,8 @@ class StationaryVelocity(nn.Module, AbstractDeformation):
 
 def get_gpu_memory():
     """Get current GPU memory usage in MB"""
+    if not torch.cuda.is_available():
+        return 0.0
     torch.cuda.synchronize()
     return torch.cuda.memory_allocated() / 1024 / 1024
 
@@ -162,7 +164,8 @@ if __name__ == '__main__':
 
     print(f"GPU memory after float64: {get_gpu_memory()}")
     del fixed, moving, deformation, img1, img2, w, loss
-    torch.cuda.empty_cache()
+    if torch.cuda.is_available():
+        torch.cuda.empty_cache()
     gc.collect()
     print(f"GPU memory after float64: {get_gpu_memory()}")
 

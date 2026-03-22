@@ -184,7 +184,7 @@ def torch_warp_composer_2d(
     grid: Optional[torch.Tensor] = None,
     output: Optional[torch.Tensor] = None,
 ) -> torch.Tensor:
-    """
+    r"""
     Baseline implementation of 3D grid sampler that handles:
     warp = u \circ (Ax + v)
     

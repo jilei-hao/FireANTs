@@ -12,6 +12,12 @@ from fireants.registration.distributed.parallel_state import (
     get_device,
     get_grid_parallel_size,
     get_data_parallel_size,
+    launched_with_torchrun,
+)
+
+pytestmark = pytest.mark.skipif(
+    not launched_with_torchrun(),
+    reason="Distributed tests must be launched with torchrun",
 )
 
 

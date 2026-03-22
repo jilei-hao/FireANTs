@@ -66,11 +66,13 @@ def get_tensor_memory_details() -> List[Tuple[torch.Tensor, float, str, str]]:
 
 def get_gpu_memory(clear: bool = False):
     """Get current GPU memory usage in MB"""
-    if clear:
-        torch.cuda.empty_cache()
-        gc.collect()
-    torch.cuda.synchronize()
-    return torch.cuda.memory_allocated() / 1024 / 1024
+    if torch.cuda.is_available():
+        if clear:
+            torch.cuda.empty_cache()
+        torch.cuda.synchronize()
+        return torch.cuda.memory_allocated() / 1024 / 1024
+    gc.collect()
+    return 0.0
 
 class ConvergenceMonitor:
     def __init__(self, N, slope):
@@ -236,7 +238,7 @@ def savetxt(filename: str, A: torch.Tensor, t: torch.Tensor):
 
 # def compose_warp(warp1: torch.Tensor, warp2: torch.Tensor, grid: torch.Tensor):
 def compose_warp(warp1: torch.Tensor, warp2: torch.Tensor, affine: Optional[torch.Tensor] = None):
-    '''
+    r'''
     warp1 and warp2 are displacement maps u(x) and v(x) of size [N, H, W, D, dims]
 
     phi1(x) = x + u(x)

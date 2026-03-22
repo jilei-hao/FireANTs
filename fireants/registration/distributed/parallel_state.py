@@ -40,6 +40,14 @@ _PLATFORM_NAME = os.name
 _PARALLEL_STATE = None   # probably a device mesh
 _BACKEND = None
 
+def _get_local_device(local_rank: int) -> torch.device:
+    if torch.cuda.is_available():
+        return torch.device(f'cuda:{local_rank}')
+    if torch.backends.mps.is_available():
+        return torch.device('mps')
+    return torch.device('cpu')
+
+
 class FireANTsDeviceMesh:
     def __init__(self, mesh: np.ndarray, backend: str):
         # mesh is a nD array
@@ -47,12 +55,12 @@ class FireANTsDeviceMesh:
         self.backend = backend
         # sizes
         self.world_size = mesh.size
-        self.num_devices = torch.cuda.device_count() 
+        self.num_devices = torch.cuda.device_count() if torch.cuda.is_available() else 1
         self.data_parallel_size = mesh.shape[0]
         self.grid_parallel_size = mesh.shape[1]
         self.current_rank = int(os.environ.get('RANK', 0))
         self.local_rank = int(os.environ.get('LOCAL_RANK', 0))
-        self.device = torch.device(f'cuda:{self.local_rank % self.num_devices}')
+        self.device = _get_local_device(self.local_rank % self.num_devices)
         # get current data_parallel_rank and grid_parallel_rank
         dp_rank, gp_rank = np.where(mesh == self.current_rank)
         assert len(dp_rank) == 1 and len(gp_rank) == 1, f"Rank {self.current_rank} is in the mesh {len(dp_rank)} times"
@@ -190,6 +198,8 @@ def get_default_backend():
     '''
     if _PLATFORM_NAME == 'nt':
         return 'gloo'
+    if not torch.cuda.is_available():
+        return 'gloo'
     return 'nccl'
 
 def get_grid_parallel_size():
@@ -239,8 +249,11 @@ def initialize_parallel_state(
     global _BACKEND, _PARALLEL_STATE
     # set backend and launch
     _BACKEND = get_default_backend() if backend is None else backend
-    device = torch.device(f'cuda:{local_rank}')
-    torch.distributed.init_process_group(backend=_BACKEND, device_id=device, world_size=world_size, rank=current_rank, timeout=one_hour)
+    device = _get_local_device(local_rank)
+    if torch.cuda.is_available() and _BACKEND == 'nccl':
+        torch.distributed.init_process_group(backend=_BACKEND, device_id=device, world_size=world_size, rank=current_rank, timeout=one_hour)
+    else:
+        torch.distributed.init_process_group(backend=_BACKEND, world_size=world_size, rank=current_rank, timeout=one_hour)
     if wait is not None:
         sleep(wait)
 

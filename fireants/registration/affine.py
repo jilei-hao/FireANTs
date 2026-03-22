@@ -286,7 +286,8 @@ class AffineRegistration(AbstractRegistration):
 
             # this is in physical space
             pbar = tqdm(range(iters)) if verbose else range(iters)
-            torch.cuda.empty_cache()
+            if torch.cuda.is_available():
+                torch.cuda.empty_cache()
             for i in pbar:
                 self.optimizer.zero_grad()
                 affinemat = ((moving_p2t @ self.get_affine_matrix() @ fixed_t2p)[:, :-1]).contiguous().to(self.dtype)

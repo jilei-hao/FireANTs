@@ -243,7 +243,8 @@ class WarpAdam:
             # move to device
             self.exp_avg = self.exp_avg.to('cpu')
             self.exp_avg_sq = self.exp_avg_sq.to('cpu')
-            torch.cuda.empty_cache()
+            if torch.cuda.is_available():
+                torch.cuda.empty_cache()
 
         # denom = (self.exp_avg_sq / beta_correction2).sqrt().add_(self.eps)
         # get updated gradient (this will be normalized and passed in)

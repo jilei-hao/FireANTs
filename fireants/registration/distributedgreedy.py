@@ -399,8 +399,9 @@ class DistributedGreedyRegistration(AbstractRegistration, DeformableMixin):
                 del moving_image_blur, fixed_image_down 
                 del moved_image
             # sync and clean
-            torch.cuda.empty_cache()
-            torch.cuda.synchronize()
+            if torch.cuda.is_available():
+                torch.cuda.empty_cache()
+                torch.cuda.synchronize()
             torch.distributed.barrier()
         
         print(f"Rank {self.rank} finished optimization")

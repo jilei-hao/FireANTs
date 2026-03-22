@@ -29,7 +29,7 @@ logger = logging.getLogger(__name__)
 try:
     import fireants_fused_ops as ffo
 except ImportError:
-    logger.warn("fireants_fused_ops not found, will use torch fft instead")
+    logger.warning("fireants_fused_ops not found, will use torch fft instead")
     ffo = None
 
 class TorchFloatType(Enum):
@@ -131,9 +131,9 @@ def downsample(image: torch.Tensor, size: List[int], mode: str, sigma: Optional[
     if sigma is provided (in voxels), then use this sigma for downsampling, otherwise infer sigma
     '''
     if use_fft and ffo is None:
-        logger.warn("fireants_fused_ops is not found, will default to standard downsampling")
+        logger.warning("fireants_fused_ops is not found, will default to standard downsampling")
         use_fft = False
-    if image.device.type == 'cpu':
+    if image.device.type in ('cpu', 'mps'):
         use_fft = False
 
     if use_fft:
