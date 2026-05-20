@@ -60,6 +60,7 @@ def build_macos_metal_extension():
         sources=[
             'src/src.cpp',
             'metal/AdamUtils.mm',
+            'metal/GridSampler3d.mm',
         ],
         include_dirs=[include_dir, metal_dir] + torch.utils.cpp_extension.include_paths(),
         library_dirs=torch.utils.cpp_extension.library_paths(),

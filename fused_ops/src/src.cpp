@@ -19,6 +19,10 @@
 #include "MutualInformation.h"         // declares enum KernelType; mi impls are CUDA-only
 #include "common.h"                    // declares adam_update_fused (CUDA or Metal backend)
 
+#ifdef FIREANTS_FUSED_OPS_HAS_METAL
+#include "../metal/metal_ops.h"
+#endif
+
 #ifdef FIREANTS_FUSED_OPS_HAS_CUDA
 #include "FusedGridSampler.h"
 #include "FusedGridSamplerGenericLabel.h"
@@ -147,6 +151,10 @@ PYBIND11_MODULE(fireants_fused_ops, m) {
         py::arg("grad"), py::arg("exp_avg"), py::arg("exp_avg_sq"), py::arg("beta1"), py::arg("beta2"), py::arg("eps"));
 
 #ifdef FIREANTS_FUSED_OPS_HAS_METAL
+    m.def("grid_sample_3d_backward_mps", &grid_sample_3d_backward_mps,
+        "Native Metal backward for torch.nn.functional.grid_sample on 5D input "
+        "(bilinear, zeros padding). Returns [grad_input, grad_grid].",
+        py::arg("grad_output"), py::arg("input"), py::arg("grid"), py::arg("align_corners"));
     m.attr("__backend__") = py::str("metal");
 #elif defined(FIREANTS_FUSED_OPS_HAS_CUDA)
     m.attr("__backend__") = py::str("cuda");
