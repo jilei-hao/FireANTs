@@ -18,6 +18,7 @@
 #include "CrossCorrelation.h"          // declares enum Reduction; cc impls are CUDA-only
 #include "MutualInformation.h"         // declares enum KernelType; mi impls are CUDA-only
 #include "common.h"                    // declares adam_update_fused (CUDA or Metal backend)
+#include "GaussianBlurFFT.h"           // shared decl, impl on both CUDA and Metal
 
 #ifdef FIREANTS_FUSED_OPS_HAS_METAL
 #include "../metal/metal_ops.h"
@@ -28,7 +29,6 @@
 #include "FusedGridSamplerGenericLabel.h"
 #include "FusedGridComposer.h"
 #include "FusedGenerateGrid.h"
-#include "GaussianBlurFFT.h"
 #endif
 
 PYBIND11_MODULE(fireants_fused_ops, m) {
@@ -134,13 +134,6 @@ PYBIND11_MODULE(fireants_fused_ops, m) {
         py::arg("affine"), py::arg("grid"), py::arg("grad_output"), py::arg("grad_affine"), py::arg("grad_grid"),
         py::arg("grid_xmin"), py::arg("grid_ymin"), py::arg("grid_zmin"), py::arg("grid_xmax"), py::arg("grid_ymax"), py::arg("grid_zmax"));
 
-    // gaussian blur in fft space
-    m.def("gaussian_blur_fft2", &gaussian_blur_fft2, "Gaussian blur in fft space",
-        py::arg("im_fft"), py::arg("ys"), py::arg("xs"), py::arg("ye"), py::arg("xe"), py::arg("multiplier"));
-
-    m.def("gaussian_blur_fft3", &gaussian_blur_fft3, "Gaussian blur in fft space",
-        py::arg("im_fft"), py::arg("zs"), py::arg("ys"), py::arg("xs"), py::arg("ze"), py::arg("ye"), py::arg("xe"), py::arg("multiplier"));
-
     m.def("mutual_information_histogram_fwd", &mutual_information_histogram_fwd, "Mutual information histogram forward", py::arg("input_img"), py::arg("target_img"), py::arg("num_bins"), py::arg("kernel_type") = KernelType::GAUSSIAN, py::arg("minval") = 0.0, py::arg("maxval") = 1.0, py::arg("sigma_ratio") = 1.0, py::arg("approximate_reduction") = false);
 
     m.def("mutual_information_histogram_bwd", &mutual_information_histogram_bwd, "Mutual information histogram backward", py::arg("input_img"), py::arg("target_img"), py::arg("grad_pab"), py::arg("grad_pa"), py::arg("grad_pb"), py::arg("num_bins"), py::arg("grad_input_img"), py::arg("grad_target_img"), py::arg("kernel_type") = KernelType::GAUSSIAN, py::arg("minval") = 0.0, py::arg("maxval") = 1.0, py::arg("sigma_ratio") = 1.0);
@@ -149,6 +142,13 @@ PYBIND11_MODULE(fireants_fused_ops, m) {
     // Always available: backed by AdamUtils.cu on CUDA, metal/AdamUtils.mm on macOS.
     m.def("adam_update_fused", &adam_update_fused, "Adam update fused",
         py::arg("grad"), py::arg("exp_avg"), py::arg("exp_avg_sq"), py::arg("beta1"), py::arg("beta2"), py::arg("eps"));
+
+    // Gaussian blur in FFT space: in-place on complex64. Backed by
+    // GaussianBlurFFT.cu on CUDA, metal/GaussianBlurFFT.mm on macOS.
+    m.def("gaussian_blur_fft2", &gaussian_blur_fft2, "Gaussian blur in fft space (2D, in-place complex64)",
+        py::arg("im_fft"), py::arg("ys"), py::arg("xs"), py::arg("ye"), py::arg("xe"), py::arg("multiplier"));
+    m.def("gaussian_blur_fft3", &gaussian_blur_fft3, "Gaussian blur in fft space (3D, in-place complex64)",
+        py::arg("im_fft"), py::arg("zs"), py::arg("ys"), py::arg("xs"), py::arg("ze"), py::arg("ye"), py::arg("xe"), py::arg("multiplier"));
 
 #ifdef FIREANTS_FUSED_OPS_HAS_METAL
     m.def("grid_sample_3d_backward_mps", &grid_sample_3d_backward_mps,

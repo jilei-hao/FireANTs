@@ -133,7 +133,11 @@ def downsample(image: torch.Tensor, size: List[int], mode: str, sigma: Optional[
     if use_fft and ffo is None:
         logger.warning("fireants_fused_ops is not found, will default to standard downsampling")
         use_fft = False
-    if image.device.type in ('cpu', 'mps'):
+    if image.device.type == 'cpu':
+        use_fft = False
+    # MPS supports torch.fft + the gaussian_blur_fft kernel; older fused-ops
+    # builds may lack the symbol, so check before opting in.
+    if image.device.type == 'mps' and (ffo is None or not hasattr(ffo, 'gaussian_blur_fft3')):
         use_fft = False
 
     if use_fft:
