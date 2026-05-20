@@ -25,6 +25,14 @@ import sys
 from typing import Union, Tuple, List, Optional, Dict, Any, Callable
 from fireants.types import ItemOrList
 import fireants_fused_ops as ffo
+# The macOS / Metal build of fireants_fused_ops ships only adam_update_fused;
+# raise ImportError so abstract.py's fallback routes to the non-fused loss.
+if not hasattr(ffo, 'create_intermediates'):
+    raise ImportError(
+        "fireants_fused_ops backend '{}' does not include cross-correlation kernels".format(
+            getattr(ffo, '__backend__', 'unknown')
+        )
+    )
 from fireants.losses.cc import LocalNormalizedCrossCorrelationLoss, gaussian_1d
 from fireants.tests.cc_mem_test import fast_lncc
 from fireants.losses.maskedutils import POSSIBLE_MASKED_MODES, DEFAULT_MASK_MODE, get_tensors_and_mask, mask_loss_function

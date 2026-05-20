@@ -37,9 +37,22 @@ def adam_update_fused_baseline(grad, exp_avg, exp_avg_sq, beta1, beta2, eps):
 try:
     import fireants_fused_ops as ffo
     adam_update_fused = ffo.adam_update_fused
+    # __backend__ is exported by the C++ module ('cuda' or 'metal'); fall back to
+    # the device-type check for older installs that predate the backend label.
+    _FFO_BACKEND = getattr(ffo, '__backend__', None)
 except ImportError:
     logger.warning("Fused ops not found, using baseline implementation")
     adam_update_fused = adam_update_fused_baseline
+    _FFO_BACKEND = None
+
+
+def _adam_fused_supports(device: torch.device) -> bool:
+    if _FFO_BACKEND == 'cuda':
+        return device.type == 'cuda'
+    if _FFO_BACKEND == 'metal':
+        return device.type == 'mps'
+    # Pre-backend-label installs are CUDA-only by construction.
+    return _FFO_BACKEND is None and adam_update_fused is not adam_update_fused_baseline and device.type == 'cuda'
 
 ## Function for smoothing
 def _get_smoothing_wrapper(optimizer):
@@ -111,7 +124,7 @@ class WarpAdam:
         self.scaledown = scaledown   # if true, the scale the gradient even if norm is below 1
         # offload params
         self.device = warp.device
-        self.adam_update_kernel = adam_update_fused if self.device.type == 'cuda' else adam_update_fused_baseline
+        self.adam_update_kernel = adam_update_fused if _adam_fused_supports(self.device) else adam_update_fused_baseline
         self.offload = offload
         # warp grad params
         self.exp_avg = torch.zeros_like(warp, device=self.device if not self.offload else 'cpu')
