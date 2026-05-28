@@ -155,6 +155,21 @@ PYBIND11_MODULE(fireants_fused_ops, m) {
         "Native Metal backward for torch.nn.functional.grid_sample on 5D input "
         "(bilinear, zeros padding). Returns [grad_input, grad_grid].",
         py::arg("grad_output"), py::arg("input"), py::arg("grid"), py::arg("align_corners"));
+
+    // Forward-only 3D fused generic-label sampler on MPS. Same Python name and
+    // arg order as the CUDA build so the FireANTs dispatcher can call it
+    // transparently. Backward is intentionally not provided here — the
+    // segmentation reslicing call site uses the result for inference only.
+    m.def("fused_grid_sampler_3d_generic_label_forward",
+        &fused_grid_sampler_3d_generic_label_forward_mps,
+        py::arg("input"), py::arg("affine_3d"), py::arg("grid"), py::arg("grid_affine"),
+        py::arg("output_labels"), py::arg("output_weights"),
+        py::arg("out_D"), py::arg("out_H"), py::arg("out_W"),
+        py::arg("grid_xmin"), py::arg("grid_ymin"), py::arg("grid_zmin"),
+        py::arg("grid_xmax"), py::arg("grid_ymax"), py::arg("grid_zmax"),
+        py::arg("is_displacement"), py::arg("padding_mode"), py::arg("align_corners"),
+        py::arg("return_weight"),
+        py::arg("background_label") = std::nullopt);
     m.attr("__backend__") = py::str("metal");
 #elif defined(FIREANTS_FUSED_OPS_HAS_CUDA)
     m.attr("__backend__") = py::str("cuda");

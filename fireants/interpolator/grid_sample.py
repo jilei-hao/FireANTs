@@ -296,8 +296,8 @@ def torch_warp_composer_3d(
             affine = torch.eye(3, 4, device=u.device)[None].expand(B, -1, -1)
         grid = F.affine_grid(affine, [B, 1] + list(v.shape[1:-1]), align_corners=align_corners).to(u.dtype)
     sample_grid = (grid + v).to(u.dtype)
-    ret = F.grid_sample(u.permute(0, 4, 1, 2, 3), sample_grid, mode=mode, padding_mode=padding_mode, align_corners=align_corners).permute(0, 2, 3, 4, 1)
-    if output is not None:  
+    ret = _grid_sample_3d(u.permute(0, 4, 1, 2, 3), sample_grid, mode=mode, padding_mode=padding_mode, align_corners=align_corners).permute(0, 2, 3, 4, 1)
+    if output is not None:
         output.add_(ret)
     else:
         output = ret
