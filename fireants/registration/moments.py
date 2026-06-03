@@ -143,8 +143,9 @@ class MomentsRegistration(AbstractRegistration):
             scale_factor: [N, d, d] scaling matrix to incorporate when checking for best match
         '''
         oris = np.array(oris)   # [confs, d, d]
-        oris = torch.tensor(oris, device=fixed_arrays.device).unsqueeze(1).expand(-1, self.opt_size, -1, -1)       # [confs, N, d, d]
-        oris = oris.to(U_f.dtype)
+        # Specify dtype up front so MPS doesn't see an intermediate fp64 tensor
+        # (numpy's default float type is fp64, which MPS rejects).
+        oris = torch.tensor(oris, dtype=U_f.dtype, device=fixed_arrays.device).unsqueeze(1).expand(-1, self.opt_size, -1, -1)       # [confs, N, d, d]
         moving_p2t = self.moving_images.get_phy2torch().to(U_f.dtype)
 
         # initialize best idx and best metric for each batch id

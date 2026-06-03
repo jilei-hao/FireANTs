@@ -1,4 +1,5 @@
 import os
+os.environ.setdefault('PYTORCH_ENABLE_MPS_FALLBACK', '1')
 import pytest
 import numpy as np
 import SimpleITK as sitk

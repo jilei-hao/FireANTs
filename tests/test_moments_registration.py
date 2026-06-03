@@ -5,6 +5,13 @@ import torch
 from pathlib import Path
 import logging
 
+def _get_device():
+    if torch.cuda.is_available():
+        return 'cuda'
+    if torch.backends.mps.is_available():
+        return 'mps'
+    return 'cpu'
+
 # Import FireANTs components
 from fireants.registration.moments import MomentsRegistration
 from fireants.io.image import Image, BatchedImages
@@ -152,13 +159,14 @@ def registration_2d_data():
     moving_itk = sitk.GetImageFromArray(moving_array)
     
     # Create Image objects
-    fixed_img = Image(fixed_itk, device='cuda')
-    moving_img = Image(moving_itk, device='cuda')
-    
+    device = _get_device()
+    fixed_img = Image(fixed_itk, device=device)
+    moving_img = Image(moving_itk, device=device)
+
     # Create BatchedImages objects
     fixed_batch = BatchedImages([fixed_img])
     moving_batch = BatchedImages([moving_img])
-    
+
     return {
         'fixed_batch': fixed_batch,
         'moving_batch': moving_batch,
@@ -200,13 +208,14 @@ def registration_3d_data():
     moving_itk = sitk.GetImageFromArray(moving_array)
     
     # Create Image objects
-    fixed_img = Image(fixed_itk, device='cuda')
-    moving_img = Image(moving_itk, device='cuda')
-    
+    device = _get_device()
+    fixed_img = Image(fixed_itk, device=device)
+    moving_img = Image(moving_itk, device=device)
+
     # Create BatchedImages objects
     fixed_batch = BatchedImages([fixed_img])
     moving_batch = BatchedImages([moving_img])
-    
+
     return {
         'fixed_batch': fixed_batch,
         'moving_batch': moving_batch,

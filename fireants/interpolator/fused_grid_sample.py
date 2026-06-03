@@ -102,8 +102,10 @@ class FusedGridSampler3d(torch.autograd.Function):
         except Exception as e:
             print(f"Error in fused_grid_sampler_3d_forward: {e}")
             print(f"Input shape: {input.shape}, dtype: {input.dtype}, device: {input.device}")
-            print(f"Affine shape: {affine.shape}, dtype: {affine.dtype}, device: {affine.device}")
-            print(f"Grid shape: {grid.shape}, dtype: {grid.dtype}, device: {grid.device}")
+            if affine is not None:
+                print(f"Affine shape: {affine.shape}, dtype: {affine.dtype}, device: {affine.device}")
+            if grid is not None:
+                print(f"Grid shape: {grid.shape}, dtype: {grid.dtype}, device: {grid.device}")
             raise e
         # save everything for backward
         ctx.save_for_backward(input, affine, grid, grid_affine)

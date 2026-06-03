@@ -124,14 +124,28 @@ class GridSampleDispatcher:
         """Dispatch to appropriate grid sample implementation."""
         mode = kwargs.get("mode", "bilinear")
         if mode == "genericlabel":
-            # Reroute to generic-label fused sampler (single tensor, return_probs=False)
+            dim = self._get_image_dim(*args, **kwargs)
+            input_tensor = kwargs.get("input", args[0] if args else None)
+            # The augment_registry_backend wrapper flips _use_ffo off for any
+            # non-CUDA tensor. Re-enable it here when the input is on MPS and
+            # the Metal build exposes the matching forward kernel — there is
+            # no torch fallback for genericlabel mode, so without this the
+            # call would simply error out on MPS.
+            mps_genericlabel = (
+                isinstance(input_tensor, torch.Tensor)
+                and input_tensor.device.type == 'mps'
+                and FFO_AVAILABLE
+                and getattr(ffo, '__backend__', None) == 'metal'
+                and hasattr(ffo, 'fused_grid_sampler_3d_generic_label_forward')
+                and dim == 3
+            )
+            if mps_genericlabel:
+                self._use_ffo = True
             if not self._use_ffo or fused_grid_sampler_2d_generic_label is None:
                 raise RuntimeError(
                     "genericlabel interpolation requires fused ops (FFO). "
                     "Either compile fused ops or use is_onehot=True for segmentation images."
                 )
-            dim = self._get_image_dim(*args, **kwargs)
-            input_tensor = kwargs.get("input", args[0] if args else None)
             if dim == 2:
                 return fused_grid_sampler_2d_generic_label(*args, **kwargs)
             return fused_grid_sampler_3d_generic_label(*args, **kwargs)

@@ -1,3 +1,5 @@
+import pytest
+pytest.importorskip('fireants_fused_ops', reason="fireants_fused_ops (CUDA) not available")
 import numpy as np
 import torch
 import torch.distributed as dist

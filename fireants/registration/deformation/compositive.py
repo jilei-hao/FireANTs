@@ -38,7 +38,7 @@ from logging import getLogger
 from copy import deepcopy
 
 class CompositiveWarp(nn.Module, AbstractDeformation):
-    '''
+    r'''
     Class for compositive warp function (collects gradients of dL/dp)
     The image is computed as M \circ (\phi + u)
     '''

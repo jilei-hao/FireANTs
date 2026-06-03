@@ -23,6 +23,53 @@ from typing import Optional
 import logging
 logger = logging.getLogger(__name__)
 
+# Optional Metal backward kernel for 3D grid_sample. PyTorch's
+# aten::grid_sampler_3d_backward currently falls back to CPU on MPS; this
+# autograd.Function plugs in our native kernel when the loaded fused-ops
+# build supports it. Forward stays as native MPS F.grid_sample.
+try:
+    import fireants_fused_ops as _ffo_mps
+    _MPS_GRID_SAMPLE_3D_AVAILABLE = hasattr(_ffo_mps, 'grid_sample_3d_backward_mps')
+except ImportError:
+    _ffo_mps = None
+    _MPS_GRID_SAMPLE_3D_AVAILABLE = False
+
+
+class _MpsGridSample3d(torch.autograd.Function):
+    @staticmethod
+    def forward(ctx, input, grid, align_corners):
+        out = F.grid_sample(input, grid, mode='bilinear', padding_mode='zeros',
+                            align_corners=align_corners)
+        ctx.save_for_backward(input, grid)
+        ctx.align_corners = align_corners
+        return out
+
+    @staticmethod
+    def backward(ctx, grad_output):
+        input, grid = ctx.saved_tensors
+        gi, gg = _ffo_mps.grid_sample_3d_backward_mps(
+            grad_output.contiguous(),
+            input.contiguous(),
+            grid.contiguous(),
+            ctx.align_corners,
+        )
+        return gi, gg, None
+
+
+def _grid_sample_3d(input: torch.Tensor, grid: torch.Tensor,
+                    mode: str, padding_mode: str, align_corners: bool) -> torch.Tensor:
+    """Wrapper around F.grid_sample for 5D input that swaps in the native Metal
+    backward when running on MPS with the bilinear/zeros configuration."""
+    if (_MPS_GRID_SAMPLE_3D_AVAILABLE
+            and input.device.type == 'mps'
+            and mode == 'bilinear'
+            and padding_mode == 'zeros'
+            and input.dtype == torch.float32
+            and grid.dtype == torch.float32):
+        return _MpsGridSample3d.apply(input, grid, align_corners)
+    return F.grid_sample(input, grid, mode=mode, padding_mode=padding_mode,
+                         align_corners=align_corners)
+
 
 def get_min_coords3d(Z, Y, X, align_corners):
     if not align_corners:
@@ -142,12 +189,12 @@ def torch_grid_sampler_3d(
             logger.warning("out_shape is not provided for affine-only transformation, using input shape")
             out_shape = (Z, Y, X)
         grid = F.affine_grid(affine, (B, C, *out_shape[-3:]), align_corners=align_corners).to(input.dtype)
-        ret = F.grid_sample(input, grid, mode=mode, padding_mode=padding_mode, align_corners=align_corners)
+        ret = _grid_sample_3d(input, grid, mode=mode, padding_mode=padding_mode, align_corners=align_corners)
         if output is not None:
             output.add_(ret)
             return output
         return ret
-    
+
     # see if grid affine
     if grid_affine is not None:
         grid = torch.einsum('bij,b...j->b...i', grid_affine, grid)
@@ -155,7 +202,7 @@ def torch_grid_sampler_3d(
     # Case 2: Full warp field
     if not is_displacement:
         grid = grid.to(input.dtype)
-        ret = F.grid_sample(input, grid, mode=mode, padding_mode=padding_mode, align_corners=align_corners)
+        ret = _grid_sample_3d(input, grid, mode=mode, padding_mode=padding_mode, align_corners=align_corners)
         if output is not None:
             output.add_(ret)
             return output
@@ -169,7 +216,7 @@ def torch_grid_sampler_3d(
     base_grid = F.affine_grid(affine, (B, C, *out_shape[-3:]), align_corners=align_corners).to(input.dtype)
     # Add displacement
     base_grid = base_grid + grid.to(input.dtype)
-    ret = F.grid_sample(input, base_grid, mode=mode, padding_mode=padding_mode, align_corners=align_corners)
+    ret = _grid_sample_3d(input, base_grid, mode=mode, padding_mode=padding_mode, align_corners=align_corners)
     if output is not None:
         output.add_(ret)
         return output
@@ -184,7 +231,7 @@ def torch_warp_composer_2d(
     grid: Optional[torch.Tensor] = None,
     output: Optional[torch.Tensor] = None,
 ) -> torch.Tensor:
-    """
+    r"""
     Baseline implementation of 3D grid sampler that handles:
     warp = u \circ (Ax + v)
     
@@ -249,8 +296,8 @@ def torch_warp_composer_3d(
             affine = torch.eye(3, 4, device=u.device)[None].expand(B, -1, -1)
         grid = F.affine_grid(affine, [B, 1] + list(v.shape[1:-1]), align_corners=align_corners).to(u.dtype)
     sample_grid = (grid + v).to(u.dtype)
-    ret = F.grid_sample(u.permute(0, 4, 1, 2, 3), sample_grid, mode=mode, padding_mode=padding_mode, align_corners=align_corners).permute(0, 2, 3, 4, 1)
-    if output is not None:  
+    ret = _grid_sample_3d(u.permute(0, 4, 1, 2, 3), sample_grid, mode=mode, padding_mode=padding_mode, align_corners=align_corners).permute(0, 2, 3, 4, 1)
+    if output is not None:
         output.add_(ret)
     else:
         output = ret

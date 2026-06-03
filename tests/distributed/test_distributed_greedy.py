@@ -1,4 +1,5 @@
 import pytest
+pytest.importorskip('fireants_fused_ops', reason="fireants_fused_ops (CUDA) not available")
 import torch
 import SimpleITK as sitk
 import numpy as np

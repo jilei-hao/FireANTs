@@ -69,6 +69,12 @@ def divide_size_into_chunks(size: int, gp_size: int) -> list:
         chunks[i] += 1
     return chunks
 
+_DEFAULT_DEVICE = (
+    'cuda' if torch.cuda.is_available()
+    else 'mps' if torch.backends.mps.is_available()
+    else 'cpu'
+)
+
 class Image:
     '''`Image` is a class to handle medical images with SimpleITK backend and PyTorch tensor support.
 
@@ -105,7 +111,7 @@ class Image:
         device (devicetype): Device where PyTorch tensors are stored
     '''
     def __init__(self, itk_image: sitk.SimpleITK.Image,
-                 device: devicetype = 'cuda',
+                 device: devicetype = _DEFAULT_DEVICE,
                  dtype: torch.dtype = None,
                  is_segmentation=False, max_seg_label=None,
                  background_seg_label=-1, is_onehot: bool = False, seg_preprocessor=lambda x: x,
@@ -184,16 +190,16 @@ class Image:
         torch2px[:dims, :dims] = np.diag(scaleterm)
         torch2px[:dims, -1] = scaleterm
         # save the mapping from physical to torch and vice versa
-        self.torch2phy = torch.from_numpy(np.matmul(px2phy, torch2px)).to(device).float().unsqueeze_(0)
-        self.phy2torch = torch.inverse(self.torch2phy[0]).float().unsqueeze_(0)
+        self.torch2phy = torch.from_numpy(np.matmul(px2phy, torch2px)).float().to(device).unsqueeze_(0)
+        self.phy2torch = torch.inverse(self.torch2phy[0]).unsqueeze_(0)
         # also save intermediates just in case (as numpy arrays)
         self._torch2px = torch2px
         self._px2phy = px2phy
         # keep these as well
-        self.torch2px = torch.from_numpy(self._torch2px).to(device).float().unsqueeze_(0)
-        self.px2torch = torch.inverse(self.torch2px[0]).float().unsqueeze_(0)
-        self.px2phy = torch.from_numpy(self._px2phy).to(device).float().unsqueeze_(0)
-        self.phy2px = torch.inverse(self.px2phy[0]).float().unsqueeze_(0)
+        self.torch2px = torch.from_numpy(self._torch2px).float().to(device).unsqueeze_(0)
+        self.px2torch = torch.inverse(self.torch2px[0]).unsqueeze_(0)
+        self.px2phy = torch.from_numpy(self._px2phy).float().to(device).unsqueeze_(0)
+        self.phy2px = torch.inverse(self.px2phy[0]).unsqueeze_(0)
 
         self._px2phy = px2phy
         self.device = device

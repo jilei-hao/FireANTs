@@ -143,7 +143,8 @@ def save_additional(reg_obj, init_template_batch, additional_save_batches, batch
     for add_id, (add_filebatches, add_idbatches, is_segm) in enumerate(additional_save_batches):
         add_files = add_filebatches[batchid]
         add_ids = add_idbatches[batchid]
-        moving_batch = BatchedImages([Image.load_file(imgfile, device=torch.cuda.current_device(), is_segmentation=is_segm) for imgfile in add_files])
+        _device = f'cuda:{torch.cuda.current_device()}' if torch.cuda.is_available() else ('mps' if torch.backends.mps.is_available() else 'cpu')
+        moving_batch = BatchedImages([Image.load_file(imgfile, device=_device, is_segmentation=is_segm) for imgfile in add_files])
         moved_images = reg_obj.evaluate(init_template_batch, moving_batch)
         save_moved(moved_images, add_ids, save_dir, init_template_batch.images[0], f"add_{add_id}")
 

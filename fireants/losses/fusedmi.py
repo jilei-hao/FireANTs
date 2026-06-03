@@ -22,6 +22,14 @@ from torch.nn import functional as F
 from typing import Optional
 import os
 import fireants_fused_ops as ffo
+# The macOS / Metal build of fireants_fused_ops ships only adam_update_fused;
+# raise ImportError so abstract.py's fallback routes to the non-fused loss.
+if not hasattr(ffo, 'mutual_information_histogram_fwd'):
+    raise ImportError(
+        "fireants_fused_ops backend '{}' does not include mutual-information kernels".format(
+            getattr(ffo, '__backend__', 'unknown')
+        )
+    )
 from fireants.losses.mi import allgather_mi
 import logging
 logger = logging.getLogger(__name__)
